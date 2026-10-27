@@ -1,0 +1,12 @@
+.vibecheck/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+node_modules/
+extension/out/
+*.vsix
+dataset/out/
+training/outputs/
+mlruns/
+mlflow.db

@@ -1,0 +1,1 @@
+{ "name": "demo-app", "dependencies": { "next": "14.2.0", "react": "18.3.1", "openai": "4.0.0", "@supabase/supabase-js": "2.0.0" } }

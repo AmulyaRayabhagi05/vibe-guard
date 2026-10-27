@@ -1,0 +1,190 @@
+# AI-feature rules (OWASP Top 10 for LLM Applications) for JavaScript / TypeScript.
+rules:
+  - id: vc-ai-public-env-llm-key
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      An AI provider key is read from a public env var ($VAR), so it ships to every visitor's
+      browser and anyone can run up your bill. Keep the key server-side and call the model from an
+      API route.
+    metadata:
+      title: AI provider key exposed to the browser
+      category: ai
+      severity: critical
+      cwe: "CWE-200"
+      owasp: "LLM10:2025 Unbounded Consumption"
+    patterns:
+      - pattern-either:
+          - pattern: process.env.$VAR
+          - pattern: import.meta.env.$VAR
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ^(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|PUBLIC)_\w*(OPENAI|ANTHROPIC|CLAUDE|GEMINI|GOOGLE_AI|GROQ|OPENROUTER|MISTRAL|COHERE|REPLICATE|TOGETHER|DEEPSEEK|PERPLEXITY|HF_TOKEN|HUGGINGFACE)\w*$
+
+  - id: vc-ai-browser-client
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      dangerouslyAllowBrowser puts your AI API key in the browser. Anyone can copy it from dev
+      tools. Call the model from your server instead.
+    metadata:
+      title: AI SDK used directly in the browser
+      category: ai
+      severity: critical
+      cwe: "CWE-522"
+      owasp: "LLM10:2025 Unbounded Consumption"
+    pattern: '{..., dangerouslyAllowBrowser: true, ...}'
+
+  - id: vc-ai-prompt-injection-system
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      User-controlled text is pasted into the system prompt, so users can rewrite your
+      instructions (prompt injection). Keep the system prompt fixed and pass user text as a
+      separate user message, wrapped in clear delimiters.
+    metadata:
+      title: User input inside the system prompt
+      category: ai
+      severity: high
+      cwe: "CWE-1427"
+      owasp: "LLM01:2025 Prompt Injection"
+    pattern-either:
+      - pattern: '{role: "system", content: `...${$X}...`}'
+      - pattern: '{role: "system", content: "..." + $X}'
+      - pattern: '{..., system: `...${$X}...`, ...}'
+
+  - id: vc-ai-output-exec
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Model output is run as code or as a shell command. A prompt-injected reply can take over the
+      server. Never execute model output; map it to a fixed set of allowed actions.
+    metadata:
+      title: Model output executed as code
+      category: ai
+      severity: critical
+      cwe: "CWE-94"
+      owasp: "LLM05:2025 Improper Output Handling"
+    pattern-either:
+      - pattern: eval(<... $R.choices ...>)
+      - pattern: eval(<... $R.content ...>)
+      - pattern: eval(<... $R.text ...>)
+      - pattern: new Function(<... $R.choices ...>)
+      - pattern: $CP.exec(<... $R.choices ...>, ...)
+      - pattern: exec(<... $R.choices ...>, ...)
+      - pattern: execSync(<... $R.choices ...>, ...)
+      - pattern: exec(<... $R.text ...>, ...)
+
+  - id: vc-ai-output-sql
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Model output is used as a SQL query. A prompt-injected reply can drop tables or leak data.
+      Have the model return structured filters and build the query with parameters.
+    metadata:
+      title: Model output used as SQL
+      category: ai
+      severity: high
+      cwe: "CWE-89"
+      owasp: "LLM05:2025 Improper Output Handling"
+    pattern-either:
+      - pattern: $DB.query(<... $R.choices ...>, ...)
+      - pattern: $DB.$queryRawUnsafe(<... $R.choices ...>, ...)
+      - pattern: $DB.query(<... $R.text ...>, ...)
+
+  - id: vc-ai-output-html
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Model output is rendered as raw HTML. A prompt-injected reply can run scripts in your users'
+      browsers. Render it as text or markdown with sanitizing.
+    metadata:
+      title: Model output rendered as raw HTML
+      category: ai
+      severity: high
+      cwe: "CWE-79"
+      owasp: "LLM05:2025 Improper Output Handling"
+    patterns:
+      - pattern-either:
+          - pattern: '<$EL dangerouslySetInnerHTML={{__html: $X}} />'
+          - pattern: $E.innerHTML = $X
+      - metavariable-regex:
+          metavariable: $X
+          regex: (?i).*(completion|answer|reply|response|message|output|generated|ai|llm|chat|assistant)
+
+  - id: vc-ai-no-max-tokens
+    languages: [javascript, typescript]
+    severity: INFO
+    message: >-
+      This model call has no output limit. A crafted prompt can make every request expensive
+      (denial of wallet). Set max_tokens (or max_completion_tokens).
+    metadata:
+      title: AI call with no token limit
+      category: ai
+      severity: medium
+      cwe: "CWE-770"
+      owasp: "LLM10:2025 Unbounded Consumption"
+    patterns:
+      - pattern: '$C.chat.completions.create({...})'
+      - pattern-not: '$C.chat.completions.create({..., max_tokens: $N, ...})'
+      - pattern-not: '$C.chat.completions.create({..., max_completion_tokens: $N, ...})'
+
+  - id: vc-ai-user-controlled-model
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      The request body picks which model runs, so users can switch to the most expensive model.
+      Map allowed choices to model names on the server.
+    metadata:
+      title: User picks the model
+      category: ai
+      severity: medium
+      cwe: "CWE-639"
+      owasp: "LLM10:2025 Unbounded Consumption"
+    pattern-either:
+      - pattern: '{..., model: $REQ.body.$X, ...}'
+      - pattern: '{..., model: body.$X, ...}'
+
+  - id: vc-ai-agent-shell-tool
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      An AI agent tool can run shell commands. With prompt injection, anyone who can talk to the
+      agent can run commands on your server. Remove the tool or allow only a fixed list of
+      commands and ask a person to confirm.
+    metadata:
+      title: Agent tool with shell access
+      category: ai
+      severity: critical
+      cwe: "CWE-250"
+      owasp: "LLM06:2025 Excessive Agency"
+    patterns:
+      - pattern-either:
+          - pattern-inside: tool({...})
+          - pattern-inside: new DynamicStructuredTool({...})
+          - pattern-inside: new DynamicTool({...})
+      - pattern-either:
+          - pattern: exec(...)
+          - pattern: execSync(...)
+          - pattern: spawn(...)
+          - pattern: $CP.exec(...)
+          - pattern: $CP.execSync(...)
+          - pattern: $CP.spawn(...)
+
+  - id: vc-ai-system-prompt-in-client
+    languages: [javascript, typescript]
+    severity: INFO
+    message: >-
+      The system prompt is in a client component, so anyone can read it in the browser bundle.
+      Move it to the server.
+    metadata:
+      title: System prompt shipped to the browser
+      category: ai
+      severity: low
+      cwe: "CWE-200"
+      owasp: "LLM07:2025 System Prompt Leakage"
+    patterns:
+      - pattern-inside: |
+          "use client";
+          ...
+      - pattern: '{role: "system", content: $C}'

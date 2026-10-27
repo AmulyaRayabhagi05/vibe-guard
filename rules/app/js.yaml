@@ -1,0 +1,341 @@
+# VibeCheck app-security rules for JavaScript / TypeScript.
+# metadata.severity is VibeCheck's own scale (critical|high|medium|low); `severity` is Opengrep's.
+rules:
+  - id: vc-app-public-env-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A server secret is read from a public env var ($VAR). Anything prefixed NEXT_PUBLIC_, VITE_,
+      REACT_APP_ or EXPO_PUBLIC_ is bundled into the browser, so every visitor can read it.
+      Move it to a server-only variable and call it from an API route.
+    metadata:
+      title: Server secret exposed through a public env var
+      category: secret
+      severity: critical
+      cwe: "CWE-200"
+      owasp: "A01:2021 Broken Access Control"
+    patterns:
+      - pattern-either:
+          - pattern: process.env.$VAR
+          - pattern: import.meta.env.$VAR
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ^(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|PUBLIC)_\w*(SECRET|SERVICE_ROLE|SERVICE_KEY|PRIVATE|ADMIN|STRIPE_SK|DATABASE_URL|DB_PASS)\w*$
+
+  - id: vc-app-hardcoded-jwt-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      The JWT signing secret is hardcoded. Anyone who sees the code can forge login tokens.
+      Load it from a server env var (process.env.JWT_SECRET) and use a long random value.
+    metadata:
+      title: Hardcoded JWT secret
+      category: secret
+      severity: critical
+      cwe: "CWE-798"
+      owasp: "A07:2021 Identification and Authentication Failures"
+    pattern-either:
+      - pattern: $JWT.sign($P, "...", ...)
+      - pattern: $JWT.verify($T, "...", ...)
+      - pattern: jwt.sign($P, "...", ...)
+      - pattern: jwt.verify($T, "...", ...)
+
+  - id: vc-app-jwt-decode-no-verify
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      jwt.decode() reads a token without checking its signature, so a forged token is accepted.
+      Use jwt.verify(token, process.env.JWT_SECRET) before trusting any claim.
+    metadata:
+      title: JWT decoded without verifying the signature
+      category: app
+      severity: high
+      cwe: "CWE-347"
+      owasp: "A07:2021 Identification and Authentication Failures"
+    pattern: jwt.decode(...)
+
+  - id: vc-app-sql-injection-template
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A SQL query is built by inserting values into the string. An attacker can change the query
+      and read or delete data. Use parameters, e.g. db.query("... WHERE id = $1", [id]).
+    metadata:
+      title: SQL injection through string building
+      category: app
+      severity: high
+      cwe: "CWE-89"
+      owasp: "A03:2021 Injection"
+    patterns:
+      - pattern-either:
+          - pattern: $DB.$METHOD(`...${$X}...`, ...)
+          - pattern: $DB.$METHOD("..." + $X, ...)
+          - pattern: $DB.$METHOD($Q + $X, ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(query|execute|raw|\$queryRawUnsafe|\$executeRawUnsafe|all|get|run|exec)$
+      - metavariable-regex:
+          metavariable: $DB
+          regex: (?i).*(db|pool|client|conn|connection|sql|knex|prisma|database|sequelize)
+
+  - id: vc-app-nosql-where
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      MongoDB $where runs JavaScript on the database server. With user input it allows injection.
+      Replace it with normal query operators.
+    metadata:
+      title: NoSQL injection through $where
+      category: app
+      severity: high
+      cwe: "CWE-943"
+      owasp: "A03:2021 Injection"
+    pattern-regex: '[''"]?\$where[''"]?\s*:'
+
+  - id: vc-app-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      eval()/new Function() runs any string as code. If any part of it comes from a user or a
+      model, an attacker can run code on your server or in your users' browsers. Parse data with
+      JSON.parse or use a lookup table instead.
+    metadata:
+      title: Dynamic code execution with eval
+      category: app
+      severity: high
+      cwe: "CWE-95"
+      owasp: "A03:2021 Injection"
+    patterns:
+      - pattern-either:
+          - pattern: eval($X)
+          - pattern: new Function(...)
+      - pattern-not: eval("...")
+
+  - id: vc-app-command-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A shell command is built from a variable. Anyone who controls that value can run commands on
+      your server. Use execFile/spawn with an argument array and no shell.
+    metadata:
+      title: Command injection in child_process
+      category: app
+      severity: critical
+      cwe: "CWE-78"
+      owasp: "A03:2021 Injection"
+    patterns:
+      - pattern-either:
+          - pattern: $CP.exec($CMD, ...)
+          - pattern: $CP.execSync($CMD, ...)
+          - pattern: exec($CMD, ...)
+          - pattern: execSync($CMD, ...)
+      - pattern-not: $CP.exec("...", ...)
+      - pattern-not: $CP.execSync("...", ...)
+      - pattern-not: exec("...", ...)
+      - pattern-not: execSync("...", ...)
+      # Opengrep resolves `exec` imported from child_process, so $CP is checked by name to skip regex.exec().
+      - metavariable-regex:
+          metavariable: $CP
+          regex: (?i)^(child_?process|cp|proc|shell)$
+
+  - id: vc-app-dangerous-html
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      HTML is inserted without sanitizing it, which allows cross-site scripting (XSS). Render it as
+      text, or wrap it in DOMPurify.sanitize().
+    metadata:
+      title: Unsanitized HTML (XSS)
+      category: app
+      severity: high
+      cwe: "CWE-79"
+      owasp: "A03:2021 Injection"
+    patterns:
+      - pattern-either:
+          - pattern: '<$EL dangerouslySetInnerHTML={{__html: $X}} />'
+          - pattern: '<$EL dangerouslySetInnerHTML={{__html: $X}}>...</$EL>'
+          - pattern: $E.innerHTML = $X
+          - pattern: $E.outerHTML = $X
+          - pattern: document.write($X)
+      - pattern-not: '<$EL dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(...)}} />'
+      - pattern-not: '<$EL dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(...)}}>...</$EL>'
+      - pattern-not: $E.innerHTML = "..."
+      - pattern-not: $E.innerHTML = DOMPurify.sanitize(...)
+
+  - id: vc-app-cors-wildcard-credentials
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      CORS allows any origin together with credentials, so any website can make logged-in
+      requests to your API. List your real origins instead.
+    metadata:
+      title: CORS allows any origin with credentials
+      category: app
+      severity: medium
+      cwe: "CWE-942"
+      owasp: "A05:2021 Security Misconfiguration"
+    pattern-either:
+      - pattern: 'cors({..., origin: "*", ..., credentials: true, ...})'
+      - pattern: 'cors({..., origin: true, ..., credentials: true, ...})'
+      - pattern: 'cors({..., credentials: true, ..., origin: "*", ...})'
+      - pattern: 'cors({..., credentials: true, ..., origin: true, ...})'
+
+  - id: vc-app-express-idor
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      This route loads a record by the id in the URL but never checks who is asking. Anyone can
+      change the id and read other users' data (IDOR). Add auth middleware and check that the
+      record belongs to req.user.
+    metadata:
+      title: Route reads records by id with no auth check
+      category: app
+      severity: critical
+      cwe: "CWE-639"
+      owasp: "A01:2021 Broken Access Control"
+    patterns:
+      - pattern-either:
+          - pattern: '$APP.$M($PATH, ($REQ, $RES) => { ... })'
+          - pattern: '$APP.$M($PATH, async ($REQ, $RES) => { ... })'
+          - pattern: '$APP.$M($PATH, function ($REQ, $RES) { ... })'
+          - pattern: '$APP.$M($PATH, async function ($REQ, $RES) { ... })'
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(get|put|patch|delete|post)$
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: '.*:\w*[iI]d\b'
+      # Any reference to the logged-in user or session inside the handler counts as an auth check.
+      - pattern-not-regex: \b(req|request)\.(user|session|auth)\b
+
+  - id: vc-app-plaintext-password
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      The password is compared as plain text, which means passwords are stored unhashed. Store a
+      bcrypt/argon2 hash and compare with bcrypt.compare().
+    metadata:
+      title: Passwords stored and compared in plain text
+      category: app
+      severity: high
+      cwe: "CWE-256"
+      owasp: "A02:2021 Cryptographic Failures"
+    pattern-either:
+      - pattern: $U.password === $X
+      - pattern: $U.password == $X
+      - pattern: $X === $U.password
+      - pattern: $X == $U.password
+
+  - id: vc-app-insecure-cookie
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      This cookie can be read by scripts or sent over plain HTTP. Set httpOnly: true, secure: true
+      and sameSite: "lax" for session cookies.
+    metadata:
+      title: Session cookie missing security flags
+      category: app
+      severity: medium
+      cwe: "CWE-614"
+      owasp: "A05:2021 Security Misconfiguration"
+    pattern-either:
+      - pattern: '$RES.cookie($N, $V, {..., httpOnly: false, ...})'
+      - pattern: '$RES.cookie($N, $V, {..., secure: false, ...})'
+      - pattern: 'session({..., cookie: {..., secure: false, ...}, ...})'
+      - pattern: 'session({..., cookie: {..., httpOnly: false, ...}, ...})'
+
+  - id: vc-app-open-redirect
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      The redirect target comes straight from the request, so attackers can send your users to a
+      phishing site through your domain. Only allow relative paths or a list of known URLs.
+    metadata:
+      title: Open redirect
+      category: app
+      severity: medium
+      cwe: "CWE-601"
+      owasp: "A01:2021 Broken Access Control"
+    pattern-either:
+      - pattern: $RES.redirect($REQ.query.$X)
+      - pattern: $RES.redirect($REQ.body.$X)
+      - pattern: $RES.redirect($REQ.params.$X)
+
+  - id: vc-app-path-traversal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      A file path comes from the request, so "../" can read any file on the server (including
+      .env). Resolve the path and check it stays inside an allowed folder.
+    metadata:
+      title: Path traversal
+      category: app
+      severity: high
+      cwe: "CWE-22"
+      owasp: "A01:2021 Broken Access Control"
+    patterns:
+      - pattern-either:
+          - pattern: $RES.sendFile(<... $REQ.$P ...>, ...)
+          - pattern: $FS.readFile(<... $REQ.$P ...>, ...)
+          - pattern: $FS.readFileSync(<... $REQ.$P ...>, ...)
+          - pattern: $FS.createReadStream(<... $REQ.$P ...>, ...)
+      - metavariable-regex:
+          metavariable: $P
+          regex: ^(query|params|body)$
+
+  - id: vc-app-ssrf
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      The server fetches a URL chosen by the user. Attackers can reach internal services or cloud
+      metadata (SSRF). Allow only known hosts.
+    metadata:
+      title: Server-side request forgery (SSRF)
+      category: app
+      severity: high
+      cwe: "CWE-918"
+      owasp: "A10:2021 Server-Side Request Forgery"
+    patterns:
+      - pattern-either:
+          - pattern: fetch($REQ.$P.$X, ...)
+          - pattern: axios.$M($REQ.$P.$X, ...)
+          - pattern: axios($REQ.$P.$X, ...)
+      - metavariable-regex:
+          metavariable: $P
+          regex: ^(query|params|body)$
+
+  - id: vc-app-insecure-random
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Math.random() is predictable, so tokens made from it can be guessed. Use
+      crypto.randomUUID() or crypto.randomBytes().
+    metadata:
+      title: Predictable random value used for a secret
+      category: app
+      severity: medium
+      cwe: "CWE-338"
+      owasp: "A02:2021 Cryptographic Failures"
+    patterns:
+      - pattern-either:
+          - pattern: const $T = <... Math.random() ...>;
+          - pattern: let $T = <... Math.random() ...>;
+      - metavariable-regex:
+          metavariable: $T
+          regex: (?i).*(token|secret|password|otp|code|key|nonce|session|reset)
+
+  - id: vc-app-tls-verify-off
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      TLS certificate checks are turned off, so traffic can be intercepted. Remove
+      rejectUnauthorized: false / NODE_TLS_REJECT_UNAUTHORIZED=0.
+    metadata:
+      title: TLS certificate verification disabled
+      category: app
+      severity: medium
+      cwe: "CWE-295"
+      owasp: "A02:2021 Cryptographic Failures"
+    pattern-either:
+      - pattern: '{..., rejectUnauthorized: false, ...}'
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"

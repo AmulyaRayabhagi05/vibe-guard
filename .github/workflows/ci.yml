@@ -1,0 +1,23 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: engine } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv venv .venv && uv pip install --python .venv/bin/python -e ".[dev]"
+      - run: .venv/bin/python -m vibecheck_engine setup
+      - run: .venv/bin/python -m pytest -q
+
+  extension:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: extension } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run compile

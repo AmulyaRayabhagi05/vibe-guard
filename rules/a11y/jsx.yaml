@@ -1,0 +1,209 @@
+# WCAG 2.2 accessibility rules for React / JSX / TSX.
+# Static checks catch what's visible in markup; colour contrast and focus order are checked on the
+# live page with axe-core (Scan a link / Check accessibility).
+rules:
+  - id: vc-a11y-img-alt
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      This image has no alt text, so screen reader users don't know what it shows. Add alt="..."
+      describing it, or alt="" if it's decorative.
+    metadata:
+      title: Image without alt text
+      category: a11y
+      severity: high
+      wcag: "1.1.1 Non-text Content (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <img ... />
+          - pattern: <Image ... />
+      - pattern-not: <img ... alt=$A ... />
+      - pattern-not: <Image ... alt=$A ... />
+      - pattern-not: '<img ... {...$P} ... />'
+
+  - id: vc-a11y-click-without-keyboard
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A <$EL> responds to clicks but not to the keyboard, so keyboard and switch users can't use
+      it. Use a <button>, or add role="button", tabIndex={0} and an onKeyDown handler.
+    metadata:
+      title: Clickable element not reachable by keyboard
+      category: a11y
+      severity: high
+      wcag: "2.1.1 Keyboard (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <$EL ... onClick={$H} ... />
+          - pattern: <$EL ... onClick={$H} ...>...</$EL>
+      - metavariable-regex:
+          metavariable: $EL
+          regex: ^(div|span|li|td|tr|p|section|article|img|svg)$
+      - pattern-not: <$EL ... onKeyDown={$K} ... />
+      - pattern-not: <$EL ... onKeyDown={$K} ...>...</$EL>
+      - pattern-not: <$EL ... onKeyUp={$K} ... />
+      - pattern-not: <$EL ... onKeyUp={$K} ...>...</$EL>
+      - pattern-not: <$EL ... onKeyPress={$K} ...>...</$EL>
+
+  - id: vc-a11y-input-label
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      This form field has no accessible name. Screen readers announce it as just "edit text".
+      Add a <label htmlFor> that matches its id, or aria-label. A placeholder is not a label.
+    metadata:
+      title: Form field without a label
+      category: a11y
+      severity: high
+      wcag: "3.3.2 Labels or Instructions (A), 4.1.2 Name, Role, Value (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <input ... />
+          - pattern: <textarea ... />
+          - pattern: <textarea ...>...</textarea>
+          - pattern: <select ...>...</select>
+      - pattern-not: <$T ... id=$I ... />
+      - pattern-not: <$T ... id=$I ...>...</$T>
+      - pattern-not: <$T ... aria-label=$L ... />
+      - pattern-not: <$T ... aria-label=$L ...>...</$T>
+      - pattern-not: <$T ... aria-labelledby=$L ... />
+      - pattern-not: <$T ... aria-labelledby=$L ...>...</$T>
+      - pattern-not: <input ... type="hidden" ... />
+      - pattern-not: <input ... type="submit" ... />
+      - pattern-not: <input ... type="button" ... />
+      - pattern-not: '<$T ... {...$P} ... />'
+      - pattern-not-inside: <label ...>...</label>
+
+  - id: vc-a11y-html-lang
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      The page has no language set, so screen readers may read it with the wrong voice and
+      pronunciation. Add lang="en" (or your language) to <html>.
+    metadata:
+      title: Page language not set
+      category: a11y
+      severity: medium
+      wcag: "3.1.1 Language of Page (A)"
+    patterns:
+      - pattern: <html ...>...</html>
+      - pattern-not: <html ... lang=$L ...>...</html>
+
+  - id: vc-a11y-positive-tabindex
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A tabIndex above 0 forces this element ahead of everything else in the tab order, which
+      confuses keyboard users. Use 0 or -1 and fix the order in the DOM.
+    metadata:
+      title: Positive tabIndex changes focus order
+      category: a11y
+      severity: medium
+      wcag: "2.4.3 Focus Order (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <$EL ... tabIndex={$N} ... />
+          - pattern: <$EL ... tabIndex={$N} ...>...</$EL>
+          - pattern: <$EL ... tabIndex="$N" ... />
+          - pattern: <$EL ... tabIndex="$N" ...>...</$EL>
+      - metavariable-regex:
+          metavariable: $N
+          regex: ^[1-9][0-9]*$
+
+  - id: vc-a11y-anchor-no-href
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      This link has an onClick but no href, so it can't be reached with Tab and isn't announced as
+      a link. Use a <button> for actions, or give it a real href.
+    metadata:
+      title: Link without href
+      category: a11y
+      severity: medium
+      wcag: "2.1.1 Keyboard (A), 4.1.2 Name, Role, Value (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <a ... onClick={$H} ...>...</a>
+          - pattern: <a ... onClick={$H} ... />
+      - pattern-not: <a ... href=$U ...>...</a>
+      - pattern-not: <a ... href=$U ... />
+
+  - id: vc-a11y-icon-button-name
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      This button only contains an icon, so screen readers announce it as "button" with no name.
+      Add aria-label="..." describing what it does.
+    metadata:
+      title: Icon-only button without a name
+      category: a11y
+      severity: high
+      wcag: "4.1.2 Name, Role, Value (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <button ...><$ICON ... /></button>
+          - pattern: <Button ...><$ICON ... /></Button>
+      - metavariable-regex:
+          metavariable: $ICON
+          regex: ^([A-Z]\w*(Icon)?|svg|img|i)$
+      - pattern-not: <button ... aria-label=$L ...>...</button>
+      - pattern-not: <Button ... aria-label=$L ...>...</Button>
+      - pattern-not: <button ... aria-labelledby=$L ...>...</button>
+      - pattern-not: <button ... title=$L ...>...</button>
+
+  - id: vc-a11y-autoplay-media
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Media that plays sound automatically talks over screen readers and can't always be stopped.
+      Add muted, or let users start it.
+    metadata:
+      title: Media autoplays with sound
+      category: a11y
+      severity: medium
+      wcag: "1.4.2 Audio Control (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <video ... autoPlay ...>...</video>
+          - pattern: <video ... autoPlay ... />
+          - pattern: <audio ... autoPlay ...>...</audio>
+          - pattern: <audio ... autoPlay ... />
+      - pattern-not: <video ... muted ...>...</video>
+      - pattern-not: <video ... muted ... />
+
+  - id: vc-a11y-iframe-title
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      This iframe has no title, so screen reader users don't know what it contains. Add
+      title="...".
+    metadata:
+      title: Iframe without a title
+      category: a11y
+      severity: medium
+      wcag: "4.1.2 Name, Role, Value (A)"
+    patterns:
+      - pattern-either:
+          - pattern: <iframe ... />
+          - pattern: <iframe ...>...</iframe>
+      - pattern-not: <iframe ... title=$T ... />
+      - pattern-not: <iframe ... title=$T ...>...</iframe>
+
+  - id: vc-a11y-focus-outline-removed
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      The focus outline is removed without a replacement, so keyboard users can't see where they
+      are. Keep an outline, or add a visible focus style (e.g. focus-visible:ring-2).
+    metadata:
+      title: Focus indicator removed
+      category: a11y
+      severity: medium
+      wcag: "2.4.7 Focus Visible (AA)"
+    patterns:
+      - pattern-either:
+          - pattern: <$EL ... className="$C" ... />
+          - pattern: <$EL ... className="$C" ...>...</$EL>
+      - metavariable-regex:
+          metavariable: $C
+          regex: (?s)^(?!.*(focus-visible:|focus:ring|focus:border|focus:shadow|focus:outline-(?!none))).*\b(focus:)?outline-none\b.*

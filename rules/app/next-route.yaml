@@ -1,0 +1,24 @@
+# Next.js App Router handlers.
+rules:
+  - id: vc-app-next-route-no-auth
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      This Next.js route handler uses a URL param but never checks the session, so anyone can call
+      it for any id. Call your auth helper (auth(), getServerSession(), currentUser()) first and
+      check the record belongs to that user.
+    metadata:
+      title: Next.js route handler with no auth check
+      category: app
+      severity: critical
+      cwe: "CWE-862"
+      owasp: "A01:2021 Broken Access Control"
+    patterns:
+      - pattern: 'export async function $M(...) { $...BODY }'
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(GET|PUT|PATCH|DELETE|POST)$
+      - metavariable-regex:
+          metavariable: $...BODY
+          regex: (?s).*\bparams\b
+      - pattern-not-regex: \b(auth|getServerSession|getSession|currentUser|getUser|requireUser|requireAuth|verifyToken|withAuth|getToken|validateRequest)\s*\(

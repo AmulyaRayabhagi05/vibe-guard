@@ -1,0 +1,112 @@
+# AI-feature rules (OWASP Top 10 for LLM Applications) for Python.
+rules:
+  - id: vc-ai-py-prompt-injection-system
+    languages: [python]
+    severity: WARNING
+    message: >-
+      User-controlled text is pasted into the system prompt, so users can rewrite your
+      instructions (prompt injection). Keep the system prompt fixed and send user text as a
+      separate user message.
+    metadata:
+      title: User input inside the system prompt
+      category: ai
+      severity: high
+      cwe: "CWE-1427"
+      owasp: "LLM01:2025 Prompt Injection"
+    pattern-either:
+      - pattern: '{"role": "system", "content": f"..."}'
+      - pattern: '{"role": "system", "content": "..." + $X}'
+      - pattern: '{"role": "system", "content": "...".format(...)}'
+      - pattern: $C.messages.create(..., system=f"...", ...)
+
+  - id: vc-ai-py-output-exec
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Model output is run as code or a shell command. A prompt-injected reply can take over the
+      server. Never execute model output.
+    metadata:
+      title: Model output executed as code
+      category: ai
+      severity: critical
+      cwe: "CWE-94"
+      owasp: "LLM05:2025 Improper Output Handling"
+    pattern-either:
+      - pattern: exec(<... $R.choices ...>, ...)
+      - pattern: eval(<... $R.choices ...>, ...)
+      - pattern: exec(<... $R.content ...>, ...)
+      - pattern: eval(<... $R.content ...>, ...)
+      - pattern: os.system(<... $R.choices ...>)
+      - pattern: subprocess.$F(<... $R.choices ...>, ...)
+      - pattern: exec(<... $R.text ...>, ...)
+
+  - id: vc-ai-py-output-sql
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Model output is executed as SQL. A prompt-injected reply can drop tables or leak data. Have
+      the model return structured filters and use parameters.
+    metadata:
+      title: Model output used as SQL
+      category: ai
+      severity: high
+      cwe: "CWE-89"
+      owasp: "LLM05:2025 Improper Output Handling"
+    pattern-either:
+      - pattern: $CUR.execute(<... $R.choices ...>, ...)
+      - pattern: $CUR.execute(<... $R.content ...>, ...)
+      - pattern: $CUR.execute(<... $R.text ...>, ...)
+
+  - id: vc-ai-py-no-max-tokens
+    languages: [python]
+    severity: INFO
+    message: >-
+      This model call has no output limit, so crafted prompts can make every request expensive.
+      Set max_tokens.
+    metadata:
+      title: AI call with no token limit
+      category: ai
+      severity: medium
+      cwe: "CWE-770"
+      owasp: "LLM10:2025 Unbounded Consumption"
+    patterns:
+      - pattern: $C.chat.completions.create(...)
+      - pattern-not: $C.chat.completions.create(..., max_tokens=$N, ...)
+      - pattern-not: $C.chat.completions.create(..., max_completion_tokens=$N, ...)
+
+  - id: vc-ai-py-agent-shell-tool
+    languages: [python]
+    severity: ERROR
+    message: >-
+      An AI agent tool can run shell commands, so anyone who can talk to the agent can run
+      commands on your server. Remove it or limit it to fixed commands with a human confirmation.
+    metadata:
+      title: Agent tool with shell access
+      category: ai
+      severity: critical
+      cwe: "CWE-250"
+      owasp: "LLM06:2025 Excessive Agency"
+    patterns:
+      - pattern-inside: |
+          @tool
+          def $F(...): ...
+      - pattern-either:
+          - pattern: subprocess.$X(...)
+          - pattern: os.system(...)
+          - pattern: os.popen(...)
+
+  - id: vc-ai-py-hardcoded-llm-key
+    languages: [python]
+    severity: ERROR
+    message: >-
+      An AI provider key is written in the code. Anyone with the repo can use it. Read it from an
+      environment variable and rotate this key.
+    metadata:
+      title: Hardcoded AI provider key
+      category: ai
+      severity: critical
+      cwe: "CWE-798"
+      owasp: "LLM10:2025 Unbounded Consumption"
+    pattern-either:
+      - pattern: $CLS(..., api_key="...", ...)
+      - pattern: openai.api_key = "..."

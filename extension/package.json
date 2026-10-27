@@ -1,0 +1,61 @@
+{
+  "name": "vibecheck",
+  "displayName": "VibeCheck",
+  "description": "Find and fix security holes and WCAG accessibility issues in AI-generated apps, and trace the AI inside them. Free, local, private.",
+  "version": "0.1.0",
+  "publisher": "vibecheck",
+  "license": "MIT",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Linters", "Other"],
+  "keywords": ["security", "sast", "accessibility", "wcag", "secrets", "llm", "mlflow", "vibe coding"],
+  "main": "./out/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [{ "id": "vibecheck", "title": "VibeCheck", "icon": "media/lock.svg" }]
+    },
+    "views": {
+      "vibecheck": [{ "type": "webview", "id": "vibecheck.vault", "name": "Vault" }]
+    },
+    "commands": [
+      { "command": "vibecheck.scan", "title": "Scan workspace", "category": "VibeCheck", "icon": "$(shield)" },
+      { "command": "vibecheck.scanLink", "title": "Scan a link (GitHub repo or website)", "category": "VibeCheck" },
+      { "command": "vibecheck.checkA11y", "title": "Check accessibility of a URL (WCAG)", "category": "VibeCheck" },
+      { "command": "vibecheck.fix", "title": "Fix with VibeCheck", "category": "VibeCheck" },
+      { "command": "vibecheck.ignore", "title": "Accept risk / ignore finding", "category": "VibeCheck" },
+      { "command": "vibecheck.setup", "title": "Set up (download scanners)", "category": "VibeCheck" },
+      { "command": "vibecheck.startTracing", "title": "Start AI tracing (local MLflow)", "category": "VibeCheck" },
+      { "command": "vibecheck.stopTracing", "title": "Stop AI tracing", "category": "VibeCheck" },
+      { "command": "vibecheck.traceApp", "title": "Trace my app's AI calls", "category": "VibeCheck" },
+      { "command": "vibecheck.untraceApp", "title": "Stop tracing my app", "category": "VibeCheck" },
+      { "command": "vibecheck.openMlflow", "title": "Open MLflow UI", "category": "VibeCheck" },
+      { "command": "vibecheck.verifyAudit", "title": "Verify audit log", "category": "VibeCheck" },
+      { "command": "vibecheck.exportReport", "title": "Export audit report", "category": "VibeCheck" }
+    ],
+    "menus": {
+      "view/title": [{ "command": "vibecheck.scan", "when": "view == vibecheck.vault", "group": "navigation" }]
+    },
+    "configuration": {
+      "title": "VibeCheck",
+      "properties": {
+        "vibecheck.pythonPath": { "type": "string", "default": "", "description": "Python used to run the engine. Empty: the engine's .venv, else 'python'." },
+        "vibecheck.enginePath": { "type": "string", "default": "", "description": "Folder containing the vibecheck_engine package. Empty: bundled engine." },
+        "vibecheck.scanOnSave": { "type": "boolean", "default": true, "description": "Rescan a file when you save it." },
+        "vibecheck.testCommand": { "type": "string", "default": "", "description": "Optional command run to validate patches (e.g. npm test)." },
+        "vibecheck.showAccessibility": { "type": "boolean", "default": true, "description": "Show WCAG accessibility findings." },
+        "vibecheck.tokenBudget": { "type": "number", "default": 8000, "description": "Flag traced AI calls above this many tokens." },
+        "vibecheck.monthlyBudget": { "type": "number", "default": 25, "description": "Monthly AI spend budget in USD. The Cost view warns when the projection goes over it." }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/vscode": "1.90.0",
+    "typescript": "5.5.4"
+  }
+}

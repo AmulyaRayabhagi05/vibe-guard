@@ -1,0 +1,37 @@
+# Backend-as-a-service config files that vibe-coded apps often leave wide open.
+rules:
+  - id: vc-app-firebase-open-rules
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.rules", "firestore.rules", "storage.rules", "database.rules.json"]
+    message: >-
+      These Firebase security rules let anyone read or write everything. Require
+      request.auth != null and check the document belongs to request.auth.uid.
+    metadata:
+      title: Firebase rules allow public read/write
+      category: app
+      severity: critical
+      cwe: "CWE-284"
+      owasp: "A01:2021 Broken Access Control"
+    pattern-either:
+      - pattern-regex: allow\s+(read|write|read\s*,\s*write|create|update|delete)[^;]*:\s*if\s+true\s*;
+      - pattern-regex: '"\.(read|write)"\s*:\s*true'
+
+  - id: vc-app-supabase-rls-off
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.sql"]
+    message: >-
+      Row Level Security is turned off for this table. With Supabase, the anon key in the browser
+      can then read and change every row. Enable RLS and add policies.
+    metadata:
+      title: Supabase Row Level Security disabled
+      category: app
+      severity: critical
+      cwe: "CWE-284"
+      owasp: "A01:2021 Broken Access Control"
+    pattern-either:
+      - pattern-regex: (?i)disable\s+row\s+level\s+security
+      - pattern-regex: (?i)create\s+policy[^;]*using\s*\(\s*true\s*\)

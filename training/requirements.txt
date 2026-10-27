@@ -1,0 +1,10 @@
+# Training only (GPU box / Kaggle / Colab). Do not install into your everyday Python.
+# Unsloth pins compatible torch/transformers/trl/peft/bitsandbytes versions itself.
+unsloth
+trl>=0.12
+peft
+bitsandbytes
+datasets
+accelerate
+huggingface_hub
+mlflow>=3.0

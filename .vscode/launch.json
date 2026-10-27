@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run VibeCheck extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "${workspaceFolder}/engine/tests/fixtures/demo-app"
+      ],
+      "outFiles": ["${workspaceFolder}/extension/out/**/*.js"],
+      "preLaunchTask": "compile extension"
+    }
+  ]
+}

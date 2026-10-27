@@ -1,0 +1,75 @@
+# WCAG 2.2 checks for plain HTML templates and CSS (regex-based; Opengrep's generic mode).
+rules:
+  - id: vc-a11y-html-img-alt
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.html", "*.htm", "*.jinja", "*.jinja2", "*.j2", "*.hbs", "*.ejs", "*.vue", "*.svelte", "*.astro"]
+    message: >-
+      This image has no alt text, so screen reader users don't know what it shows. Add alt="..."
+      or alt="" if it's decorative.
+    metadata:
+      title: Image without alt text
+      category: a11y
+      severity: high
+      wcag: "1.1.1 Non-text Content (A)"
+    pattern-regex: (?i)<img\b(?![^>]*\balt\s*=)[^>]*>
+
+  - id: vc-a11y-html-lang-missing
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.html", "*.htm", "*.jinja", "*.jinja2", "*.j2", "*.hbs", "*.ejs"]
+    message: >-
+      The page has no language set. Add lang="en" (or your language) to <html>.
+    metadata:
+      title: Page language not set
+      category: a11y
+      severity: medium
+      wcag: "3.1.1 Language of Page (A)"
+    pattern-regex: (?i)<html\b(?![^>]*\blang\s*=)[^>]*>
+
+  - id: vc-a11y-viewport-zoom-disabled
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.html", "*.htm", "*.jinja", "*.jinja2", "*.hbs", "*.ejs", "*.tsx", "*.jsx", "*.ts", "*.js", "*.astro"]
+    message: >-
+      Zoom is disabled, so people with low vision can't enlarge text. Remove user-scalable=no and
+      maximum-scale=1 from the viewport meta tag.
+    metadata:
+      title: Pinch-zoom disabled
+      category: a11y
+      severity: high
+      wcag: "1.4.4 Resize Text (AA)"
+    pattern-regex: (?i)(user-scalable\s*=\s*(no|0)|maximum-scale\s*=\s*1(\.0)?\b|userScalable\s*:\s*false|maximumScale\s*:\s*1\b)
+
+  - id: vc-a11y-css-outline-none
+    languages: [generic]
+    severity: INFO
+    paths:
+      include: ["*.css", "*.scss", "*.sass", "*.less"]
+    message: >-
+      This removes the focus outline. Unless another :focus-visible style replaces it, keyboard
+      users can't see where they are.
+    metadata:
+      title: Focus outline removed in CSS
+      category: a11y
+      severity: medium
+      wcag: "2.4.7 Focus Visible (AA)"
+    pattern-regex: (?i):focus[^{]*\{[^}]*outline\s*:\s*(none|0)\b
+
+  - id: vc-a11y-html-input-label
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.html", "*.htm", "*.jinja", "*.jinja2", "*.hbs", "*.ejs"]
+    message: >-
+      This form field has no id (for a <label for>) and no aria-label, so screen readers can't
+      name it. A placeholder is not a label.
+    metadata:
+      title: Form field without a label
+      category: a11y
+      severity: high
+      wcag: "3.3.2 Labels or Instructions (A)"
+    pattern-regex: (?i)<(input|textarea|select)\b(?![^>]*\b(id|aria-label|aria-labelledby)\s*=)(?![^>]*type\s*=\s*["']?(hidden|submit|button|image|reset))[^>]*>
